@@ -1,180 +1,83 @@
-# SPDX-License-Identifier: GPL-2.0-only
-#
-# NOTE! Don't add files that are generated in specific
-# subdirectories here. Add them in the ".gitignore" file
-# in that subdirectory instead.
-#
-# NOTE! Please use 'git ls-files -i -c --exclude-per-directory=.gitignore'
-# command after changing this file, to see if there are
-# any tracked files which get ignored after the change.
-#
-# Normal rules (sorted alphabetically)
-#
-.*
-*.a
-*.asn1.[ch]
-*.bin
-*.bz2
-*.c.[012]*.*
-*.dt.yaml
-*.dtb
-*.dtbo
-*.dtb.S
-*.dtbo.S
-*.dwo
-*.elf
-*.gcno
-*.gcda
-*.gz
-*.i
+# 内核编译产物
+*.o
 *.ko
-*.lex.c
-*.ll
-*.lst
-*.lz4
-*.lzma
-*.lzo
 *.mod
 *.mod.c
-*.o
-*.o.*
-*.patch
-*.rmeta
-*.rpm
-*.rsi
-*.s
-*.so
-*.so.dbg
-*.su
-*.symtypes
-*.tab.[ch]
-*.tar
-*.xz
-*.zst
-Module.symvers
-dtbs-list
+*.mod.o
+*.symvers
+*.order
+*.cmd
+.tmp_versions/
 modules.order
+Module.symvers
+*.dwo
+*.su
+*.i
+*.lst
+*.s
+*.asm
+*.elf
+*.bin
+*.gz
+*.bz2
+*.xz
+*.lzma
+*.lzo
+*.lz4
+*.zst
 
-#
-# Top-level generic files
-#
-/linux
-/modules-only.symvers
-/vmlinux
-/vmlinux.32
-/vmlinux.map
-/vmlinux.symvers
-/vmlinux-gdb.py
-/vmlinuz
-/System.map
-/Module.markers
-/modules.builtin
-/modules.builtin.modinfo
-/modules.builtin.ranges
-/modules.nsdeps
+# 构建目录
+build/
+dist/
+output/
+target/
+obj/
+*.obj
+*.so
+*.a
+*.la
+*.lo
+.libs/
+.deps/
 
-#
-# RPM spec file (make rpm-pkg)
-#
-/rpmbuild/
+# 内核特定
+vmlinux*
+System.map
+.config*
+.config.old
+*.deb
+*.rpm
+*.tar.*
+*.tgz
+*.zip
 
-#
-# Debian directory (make deb-pkg)
-#
-/debian/
-
-#
-# Snap directory (make snap-pkg)
-#
-/snap/
-
-#
-# tar directory (make tar*-pkg)
-#
-/tar-install/
-
-#
-# pacman files (make pacman-pkg)
-#
-/PKGBUILD
-/pacman/
-
-#
-# We don't want to ignore the following even if they are dot-files
-#
-!.clang-format
-!.cocciconfig
-!.editorconfig
-!.get_maintainer.ignore
-!.gitattributes
-!.gitignore
-!.kunitconfig
-!.mailmap
-!.rustfmt.toml
-!.gitlab-ci.yml
-
-#
-# Generated include files
-#
-/include/config/
-/include/generated/
-/arch/*/include/generated/
-
-# stgit generated dirs
-patches-*
-
-# quilt's files
-patches
-series
-
-# ctags files
-tags
-TAGS
-
-# cscope files
-cscope.*
-ncscope.*
-
-# gnu global files
-GPATH
-GRTAGS
-GSYMS
-GTAGS
-
-# id-utils files
-ID
-
+# 临时文件
+*.swp
+*.swo
 *~
-\#*#
+*.bak
+*.backup
+*.tmp
+*.temp
+*.orig
+*.rej
 
-#
-# Leavings from module signing
-#
-extra_certificates
-signing_key.pem
-signing_key.priv
-signing_key.x509
-x509.genkey
+# 调试文件
+*.log
+*.log.*
+*.pid
+*.pid.*
+*.lock
+*.lock.*
 
-# Kconfig presets
-/all.config
-/alldef.config
-/allmod.config
-/allno.config
-/allrandom.config
-/allyes.config
+# IDE
+.vscode/
+.idea/
+*.code-workspace
 
-# Kconfig savedefconfig output
-/defconfig
-
-# Kdevelop4
-*.kdev4
-
-# Clang's compilation database file
-/compile_commands.json
-
-# Documentation toolchain
-sphinx_*/
-
-# Rust analyzer configuration
-/rust-project.json
+# 其他
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+*.pyo
