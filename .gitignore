@@ -81,3 +81,13 @@ Thumbs.db
 __pycache__/
 *.pyc
 *.pyo
+.tmp_vmlinux1.kallsyms.S
+.tmp_vmlinux1
+.tmp_vmlinux1.syms
+.tmp_vmlinux2
+.tmp_vmlinux2.kallsyms.S
+.tmp_vmlinux2.syms
+.version
+include/config/kernel.release
+include/generated/utsrelease.h
+include/generated/utsversion.h
