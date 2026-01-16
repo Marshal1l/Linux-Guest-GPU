@@ -12,27 +12,29 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 
-static const struct io_pgtable_init_fns *
-io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
+static const struct io_pgtable_init_fns
+	*io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
-	[ARM_32_LPAE_S1] = &io_pgtable_arm_32_lpae_s1_init_fns,
-	[ARM_32_LPAE_S2] = &io_pgtable_arm_32_lpae_s2_init_fns,
-	[ARM_64_LPAE_S1] = &io_pgtable_arm_64_lpae_s1_init_fns,
-	[ARM_64_LPAE_S2] = &io_pgtable_arm_64_lpae_s2_init_fns,
-	[ARM_MALI_LPAE] = &io_pgtable_arm_mali_lpae_init_fns,
+		[ARM_32_LPAE_S1] = &io_pgtable_arm_32_lpae_s1_init_fns,
+		[ARM_32_LPAE_S2] = &io_pgtable_arm_32_lpae_s2_init_fns,
+		[ARM_64_LPAE_S1] = &io_pgtable_arm_64_lpae_s1_init_fns,
+		[ARM_64_PANATHOR_LPAE_S1] =
+			&io_pgtable_arm_64_panthor_lpae_s1_init_fns,
+		[ARM_64_LPAE_S2] = &io_pgtable_arm_64_lpae_s2_init_fns,
+		[ARM_MALI_LPAE] = &io_pgtable_arm_mali_lpae_init_fns,
 #endif
 #ifdef CONFIG_IOMMU_IO_PGTABLE_DART
-	[APPLE_DART] = &io_pgtable_apple_dart_init_fns,
-	[APPLE_DART2] = &io_pgtable_apple_dart_init_fns,
+		[APPLE_DART] = &io_pgtable_apple_dart_init_fns,
+		[APPLE_DART2] = &io_pgtable_apple_dart_init_fns,
 #endif
 #ifdef CONFIG_IOMMU_IO_PGTABLE_ARMV7S
-	[ARM_V7S] = &io_pgtable_arm_v7s_init_fns,
+		[ARM_V7S] = &io_pgtable_arm_v7s_init_fns,
 #endif
 #ifdef CONFIG_AMD_IOMMU
-	[AMD_IOMMU_V1] = &io_pgtable_amd_iommu_v1_init_fns,
-	[AMD_IOMMU_V2] = &io_pgtable_amd_iommu_v2_init_fns,
+		[AMD_IOMMU_V1] = &io_pgtable_amd_iommu_v1_init_fns,
+		[AMD_IOMMU_V2] = &io_pgtable_amd_iommu_v2_init_fns,
 #endif
-};
+	};
 
 static int check_custom_allocator(enum io_pgtable_fmt fmt,
 				  struct io_pgtable_cfg *cfg)
@@ -75,9 +77,9 @@ struct io_pgtable_ops *alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 	if (!iop)
 		return NULL;
 
-	iop->fmt	= fmt;
-	iop->cookie	= cookie;
-	iop->cfg	= *cfg;
+	iop->fmt = fmt;
+	iop->cookie = cookie;
+	iop->cfg = *cfg;
 
 	return &iop->ops;
 }

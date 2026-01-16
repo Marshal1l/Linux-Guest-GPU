@@ -12,6 +12,7 @@ enum io_pgtable_fmt {
 	ARM_32_LPAE_S1,
 	ARM_32_LPAE_S2,
 	ARM_64_LPAE_S1,
+	ARM_64_PANATHOR_LPAE_S1,
 	ARM_64_LPAE_S2,
 	ARM_V7S,
 	ARM_MALI_LPAE,
@@ -62,7 +63,7 @@ struct iommu_flush_ops {
  *                 page table walker.
  */
 struct io_pgtable_cfg {
-	/*
+/*
 	 * IO_PGTABLE_QUIRK_ARM_NS: (ARM formats) Set NS and NSTABLE bits in
 	 *	stage 1 PTEs, for hardware which insists on validating them
 	 *	even in	non-secure state where they should normally be ignored.
@@ -88,20 +89,20 @@ struct io_pgtable_cfg {
 	 *
 	 * IO_PGTABLE_QUIRK_ARM_HD: Enables dirty tracking in stage 1 pagetable.
 	 */
-	#define IO_PGTABLE_QUIRK_ARM_NS			BIT(0)
-	#define IO_PGTABLE_QUIRK_NO_PERMS		BIT(1)
-	#define IO_PGTABLE_QUIRK_ARM_MTK_EXT		BIT(3)
-	#define IO_PGTABLE_QUIRK_ARM_MTK_TTBR_EXT	BIT(4)
-	#define IO_PGTABLE_QUIRK_ARM_TTBR1		BIT(5)
-	#define IO_PGTABLE_QUIRK_ARM_OUTER_WBWA		BIT(6)
-	#define IO_PGTABLE_QUIRK_ARM_HD			BIT(7)
-	unsigned long			quirks;
-	unsigned long			pgsize_bitmap;
-	unsigned int			ias;
-	unsigned int			oas;
-	bool				coherent_walk;
-	const struct iommu_flush_ops	*tlb;
-	struct device			*iommu_dev;
+#define IO_PGTABLE_QUIRK_ARM_NS BIT(0)
+#define IO_PGTABLE_QUIRK_NO_PERMS BIT(1)
+#define IO_PGTABLE_QUIRK_ARM_MTK_EXT BIT(3)
+#define IO_PGTABLE_QUIRK_ARM_MTK_TTBR_EXT BIT(4)
+#define IO_PGTABLE_QUIRK_ARM_TTBR1 BIT(5)
+#define IO_PGTABLE_QUIRK_ARM_OUTER_WBWA BIT(6)
+#define IO_PGTABLE_QUIRK_ARM_HD BIT(7)
+	unsigned long quirks;
+	unsigned long pgsize_bitmap;
+	unsigned int ias;
+	unsigned int oas;
+	bool coherent_walk;
+	const struct iommu_flush_ops *tlb;
+	struct device *iommu_dev;
 
 	/**
 	 * @alloc: Custom page allocator.
@@ -130,41 +131,41 @@ struct io_pgtable_cfg {
 	/* Low-level data specific to the table format */
 	union {
 		struct {
-			u64	ttbr;
+			u64 ttbr;
 			struct {
-				u32	ips:3;
-				u32	tg:2;
-				u32	sh:2;
-				u32	orgn:2;
-				u32	irgn:2;
-				u32	tsz:6;
-			}	tcr;
-			u64	mair;
+				u32 ips : 3;
+				u32 tg : 2;
+				u32 sh : 2;
+				u32 orgn : 2;
+				u32 irgn : 2;
+				u32 tsz : 6;
+			} tcr;
+			u64 mair;
 		} arm_lpae_s1_cfg;
 
 		struct {
-			u64	vttbr;
+			u64 vttbr;
 			struct {
-				u32	ps:3;
-				u32	tg:2;
-				u32	sh:2;
-				u32	orgn:2;
-				u32	irgn:2;
-				u32	sl:2;
-				u32	tsz:6;
-			}	vtcr;
+				u32 ps : 3;
+				u32 tg : 2;
+				u32 sh : 2;
+				u32 orgn : 2;
+				u32 irgn : 2;
+				u32 sl : 2;
+				u32 tsz : 6;
+			} vtcr;
 		} arm_lpae_s2_cfg;
 
 		struct {
-			u32	ttbr;
-			u32	tcr;
-			u32	nmrr;
-			u32	prrr;
+			u32 ttbr;
+			u32 tcr;
+			u32 nmrr;
+			u32 prrr;
 		} arm_v7s_cfg;
 
 		struct {
-			u64	transtab;
-			u64	memattr;
+			u64 transtab;
+			u64 memattr;
 		} arm_mali_lpae_cfg;
 
 		struct {
@@ -226,7 +227,6 @@ struct io_pgtable_ops *alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
  */
 void free_io_pgtable_ops(struct io_pgtable_ops *ops);
 
-
 /*
  * Internal structures for page table allocator implementations.
  */
@@ -241,10 +241,10 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops);
  * @ops:    The page table operations in use for this set of page tables.
  */
 struct io_pgtable {
-	enum io_pgtable_fmt	fmt;
-	void			*cookie;
-	struct io_pgtable_cfg	cfg;
-	struct io_pgtable_ops	ops;
+	enum io_pgtable_fmt fmt;
+	void *cookie;
+	struct io_pgtable_cfg cfg;
+	struct io_pgtable_ops ops;
 };
 
 #define io_pgtable_ops_to_pgtable(x) container_of((x), struct io_pgtable, ops)
@@ -255,18 +255,17 @@ static inline void io_pgtable_tlb_flush_all(struct io_pgtable *iop)
 		iop->cfg.tlb->tlb_flush_all(iop->cookie);
 }
 
-static inline void
-io_pgtable_tlb_flush_walk(struct io_pgtable *iop, unsigned long iova,
-			  size_t size, size_t granule)
+static inline void io_pgtable_tlb_flush_walk(struct io_pgtable *iop,
+					     unsigned long iova, size_t size,
+					     size_t granule)
 {
 	if (iop->cfg.tlb && iop->cfg.tlb->tlb_flush_walk)
 		iop->cfg.tlb->tlb_flush_walk(iova, size, granule, iop->cookie);
 }
 
-static inline void
-io_pgtable_tlb_add_page(struct io_pgtable *iop,
-			struct iommu_iotlb_gather * gather, unsigned long iova,
-			size_t granule)
+static inline void io_pgtable_tlb_add_page(struct io_pgtable *iop,
+					   struct iommu_iotlb_gather *gather,
+					   unsigned long iova, size_t granule)
 {
 	if (iop->cfg.tlb && iop->cfg.tlb->tlb_add_page)
 		iop->cfg.tlb->tlb_add_page(gather, iova, granule, iop->cookie);
@@ -297,6 +296,7 @@ struct io_pgtable_init_fns {
 extern struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s1_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s1_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_arm_64_panthor_lpae_s1_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_v7s_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_mali_lpae_init_fns;
