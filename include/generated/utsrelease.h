@@ -1,1 +1,1 @@
-#define UTS_RELEASE "6.12.0-g2d9e51d7adc7"
+#define UTS_RELEASE "6.12.0-gcf222f7687b7-dirty"

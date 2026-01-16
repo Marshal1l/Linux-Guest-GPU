@@ -17,7 +17,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
-
+#include <linux/arm-smccc.h>
 #include <asm/barrier.h>
 
 #include "io-pgtable-arm.h"
@@ -495,12 +495,16 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 
 	return pte;
 }
-//call hvc and return the gpa of hpa on cpu stage-2 table
-static phys_addr_t hypercall_gpa_to_hpa(phys_addr_t gpa, size_t gpa_size)
+long kvm_hypercall_gpa_to_hpa_batch(u64 *addr_array, u64 count)
 {
-	phys_addr_t hpa;
-	hpa = 0;
-	return hpa;
+	struct arm_smccc_res res;
+
+	phys_addr_t array_gpa = virt_to_phys(addr_array);
+
+	arm_smccc_1_1_invoke(ARM_SMCCC_VENDOR_HYP_GPA_TO_HPA_FUNC_ID, array_gpa,
+			     count, &res);
+
+	return res.a0; // 返回状态码
 }
 
 static int arm_panthor_lpae_map_pages(struct io_pgtable_ops *ops,
@@ -527,14 +531,33 @@ static int arm_panthor_lpae_map_pages(struct io_pgtable_ops *ops,
 		return -EINVAL;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
-	phys_addr_t hpa = hypercall_gpa_to_hpa(paddr, pgsize);
-	ret = __arm_lpae_map(data, iova, paddr, pgsize, pgcount, prot, lvl,
-			     ptep, gfp, mapped);
+	u64 *pages_buffer = kmalloc_array(pgcount, sizeof(u64), GFP_KERNEL);
+	if (!pages_buffer)
+		return -ENOMEM;
+	for (size_t i = 0; i < pgcount; i++) {
+		pages_buffer[i] = paddr + (i * pgsize);
+	}
+	ret = kvm_hypercall_gpa_to_hpa_batch(pages_buffer, pgcount);
+	if (ret != 0) {
+		kfree(pages_buffer);
+		return -EFAULT;
+	}
+	for (size_t i = 0; i < pgcount; i++) {
+		phys_addr_t hpa = pages_buffer[i];
+		unsigned long current_iova = iova + (i * pgsize);
+
+		__arm_lpae_map(data, current_iova, hpa, pgsize, 1, prot, lvl,
+			       ptep, gfp, mapped);
+	}
+	kfree(pages_buffer);
+	wmb();
+	// ret = __arm_lpae_map(data, iova, paddr, pgsize, pgcount, prot, lvl,
+	// 		     ptep, gfp, mapped);
 	/*
 	 * Synchronise all PTE updates for the new mapping before there's
 	 * a chance for anything to kick off a table walk for the new iova.
 	 */
-	wmb();
+	// wmb();
 
 	return ret;
 }

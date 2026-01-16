@@ -14,7 +14,7 @@
  *  - request_irq
  *  - bind to DRM / GPU
  */
-
+#include <linux/arm-smccc.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
@@ -35,6 +35,71 @@ static void vanthor_gpu_id_check(struct vanthor_device *ptdev)
 
 	dev_info(ptdev->dev, "GPU_ID = 0x%08x (stable=%s)\n", id1,
 		 (id1 == id2) ? "yes" : "NO");
+}
+long vanthor_hypercall_gpa_to_hpa_batch(u64 *addr_array, u64 count)
+{
+	struct arm_smccc_res res;
+
+	phys_addr_t array_gpa = virt_to_phys(addr_array);
+
+	arm_smccc_1_1_invoke(ARM_SMCCC_VENDOR_HYP_GPA_TO_HPA_FUNC_ID, array_gpa,
+			     count, &res);
+
+	return res.a0; // 返回状态码
+}
+static void vathor_gpa2hpa_check(void)
+{
+	u64 *pages_array;
+	void *test_pages[4]; // 假设我们要测试 4 页
+	size_t count = 4;
+	size_t i;
+	long ret;
+
+	// 1. 分配用于传递地址序列的缓冲区
+	pages_array = kmalloc_array(count, sizeof(u64), GFP_KERNEL);
+	if (!pages_array)
+		return;
+
+	// 2. 循环分配 4 个独立的页面并获取它们的 GPA
+	for (i = 0; i < count; i++) {
+		test_pages[i] = (void *)__get_free_page(GFP_KERNEL);
+		if (!test_pages[i]) {
+			// 如果中间分配失败，释放已分配的并退出
+			while (i--)
+				free_page((unsigned long)test_pages[i]);
+			kfree(pages_array);
+			return;
+		}
+		// 记录每一页的 GPA
+		pages_array[i] = virt_to_phys(test_pages[i]);
+		pr_info("VATHOR TEST [%zu]: Before HVC - GPA: %llx\n", i,
+			pages_array[i]);
+	}
+
+	// 3. 发起批量 Hypercall
+	ret = vanthor_hypercall_gpa_to_hpa_batch(pages_array, count);
+
+	// 4. 验证结果
+	if (ret == 0) {
+		for (i = 0; i < count; i++) {
+			pr_info("VATHOR TEST [%zu]: After HVC  - HPA: %llx\n",
+				i, pages_array[i]);
+
+			// 校验：HPA 和 GPA 的低 12 位必须始终一致 (0x000)
+			if ((pages_array[i] & 0xfff) != 0) {
+				pr_err("VATHOR TEST [%zu]: Alignment Error!\n",
+				       i);
+			}
+		}
+	} else {
+		pr_err("VATHOR TEST: Multi-page Hypercall failed: %ld\n", ret);
+	}
+
+	// 5. 清理：释放所有页面和缓冲区
+	for (i = 0; i < count; i++) {
+		free_page((unsigned long)test_pages[i]);
+	}
+	kfree(pages_array);
 }
 
 static int vanthor_probe(struct platform_device *pdev)
@@ -102,6 +167,7 @@ static int vanthor_probe(struct platform_device *pdev)
 	if (i == 0)
 		dev_warn(dev, "no irq resources found\n");
 	vanthor_gpu_id_check(vdev);
+	vathor_gpa2hpa_check();
 	dev_info(dev, "vanthor probe done (no binding performed)\n");
 	return 0;
 }

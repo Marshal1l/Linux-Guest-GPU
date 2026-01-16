@@ -26,8 +26,7 @@ static int panthor_clk_init(struct panthor_device *ptdev)
 {
 	ptdev->clks.core = devm_clk_get(ptdev->base.dev, NULL);
 	if (IS_ERR(ptdev->clks.core))
-		return dev_err_probe(ptdev->base.dev,
-				     PTR_ERR(ptdev->clks.core),
+		return dev_err_probe(ptdev->base.dev, PTR_ERR(ptdev->clks.core),
 				     "get 'core' clock failed");
 
 	ptdev->clks.stacks = devm_clk_get_optional(ptdev->base.dev, "stacks");
@@ -36,13 +35,15 @@ static int panthor_clk_init(struct panthor_device *ptdev)
 				     PTR_ERR(ptdev->clks.stacks),
 				     "get 'stacks' clock failed");
 
-	ptdev->clks.coregroup = devm_clk_get_optional(ptdev->base.dev, "coregroup");
+	ptdev->clks.coregroup =
+		devm_clk_get_optional(ptdev->base.dev, "coregroup");
 	if (IS_ERR(ptdev->clks.coregroup))
 		return dev_err_probe(ptdev->base.dev,
 				     PTR_ERR(ptdev->clks.coregroup),
 				     "get 'coregroup' clock failed");
 
-	drm_info(&ptdev->base, "clock rate = %lu\n", clk_get_rate(ptdev->clks.core));
+	drm_info(&ptdev->base, "clock rate = %lu\n",
+		 clk_get_rate(ptdev->clks.core));
 	return 0;
 }
 
@@ -99,7 +100,8 @@ void panthor_device_unplug(struct panthor_device *ptdev)
 
 static void panthor_device_reset_cleanup(struct drm_device *ddev, void *data)
 {
-	struct panthor_device *ptdev = container_of(ddev, struct panthor_device, base);
+	struct panthor_device *ptdev =
+		container_of(ddev, struct panthor_device, base);
 
 	cancel_work_sync(&ptdev->reset.work);
 	destroy_workqueue(ptdev->reset.wq);
@@ -107,7 +109,8 @@ static void panthor_device_reset_cleanup(struct drm_device *ddev, void *data)
 
 static void panthor_device_reset_work(struct work_struct *work)
 {
-	struct panthor_device *ptdev = container_of(work, struct panthor_device, reset.work);
+	struct panthor_device *ptdev =
+		container_of(work, struct panthor_device, reset.work);
 	int ret = 0, cookie;
 
 	if (atomic_read(&ptdev->pm.state) != PANTHOR_DEVICE_PM_STATE_ACTIVE) {
@@ -135,7 +138,8 @@ static void panthor_device_reset_work(struct work_struct *work)
 
 	if (ret) {
 		panthor_device_unplug(ptdev);
-		drm_err(&ptdev->base, "Failed to boot MCU after reset, making device unusable.");
+		drm_err(&ptdev->base,
+			"Failed to boot MCU after reset, making device unusable.");
 	}
 }
 
@@ -156,7 +160,8 @@ int panthor_device_init(struct panthor_device *ptdev)
 	struct page *p;
 	int ret;
 
-	ptdev->coherent = device_get_dma_attr(ptdev->base.dev) == DEV_DMA_COHERENT;
+	ptdev->coherent = device_get_dma_attr(ptdev->base.dev) ==
+			  DEV_DMA_COHERENT;
 
 	init_completion(&ptdev->unplug.done);
 	ret = drmm_mutex_init(&ptdev->base, &ptdev->unplug.lock);
@@ -192,7 +197,8 @@ int panthor_device_init(struct panthor_device *ptdev)
 	if (!ptdev->reset.wq)
 		return -ENOMEM;
 
-	ret = drmm_add_action_or_reset(&ptdev->base, panthor_device_reset_cleanup, NULL);
+	ret = drmm_add_action_or_reset(&ptdev->base,
+				       panthor_device_reset_cleanup, NULL);
 	if (ret)
 		return ret;
 
@@ -204,8 +210,8 @@ int panthor_device_init(struct panthor_device *ptdev)
 	if (ret)
 		return ret;
 
-	ptdev->iomem = devm_platform_get_and_ioremap_resource(to_platform_device(ptdev->base.dev),
-							      0, &res);
+	ptdev->iomem = devm_platform_get_and_ioremap_resource(
+		to_platform_device(ptdev->base.dev), 0, &res);
 	if (IS_ERR(ptdev->iomem))
 		return PTR_ERR(ptdev->iomem);
 
@@ -271,9 +277,9 @@ err_rpm_put:
 	return ret;
 }
 
-#define PANTHOR_EXCEPTION(id) \
-	[DRM_PANTHOR_EXCEPTION_ ## id] = { \
-		.name = #id, \
+#define PANTHOR_EXCEPTION(id)            \
+	[DRM_PANTHOR_EXCEPTION_##id] = { \
+		.name = #id,             \
 	}
 
 struct panthor_exception_info {
@@ -331,7 +337,8 @@ static const struct panthor_exception_info panthor_exception_infos[] = {
 	PANTHOR_EXCEPTION(MEM_ATTR_FAULT_3),
 };
 
-const char *panthor_exception_name(struct panthor_device *ptdev, u32 exception_code)
+const char *panthor_exception_name(struct panthor_device *ptdev,
+				   u32 exception_code)
 {
 	if (exception_code >= ARRAY_SIZE(panthor_exception_infos) ||
 	    !panthor_exception_infos[exception_code].name)
@@ -355,12 +362,14 @@ static vm_fault_t panthor_mmio_vm_fault(struct vm_fault *vmf)
 		return VM_FAULT_SIGBUS;
 
 	mutex_lock(&ptdev->pm.mmio_lock);
-	active = atomic_read(&ptdev->pm.state) == PANTHOR_DEVICE_PM_STATE_ACTIVE;
+	active = atomic_read(&ptdev->pm.state) ==
+		 PANTHOR_DEVICE_PM_STATE_ACTIVE;
 
 	switch (offset) {
 	case DRM_PANTHOR_USER_FLUSH_ID_MMIO_OFFSET:
 		if (active)
-			pfn = __phys_to_pfn(ptdev->phys_addr + CSF_GPU_LATEST_FLUSH_ID);
+			pfn = __phys_to_pfn(ptdev->phys_addr +
+					    CSF_GPU_LATEST_FLUSH_ID);
 		else
 			pfn = page_to_pfn(ptdev->pm.dummy_latest_flush);
 		break;
@@ -386,7 +395,8 @@ static const struct vm_operations_struct panthor_mmio_vm_ops = {
 	.fault = panthor_mmio_vm_fault,
 };
 
-int panthor_device_mmap_io(struct panthor_device *ptdev, struct vm_area_struct *vma)
+int panthor_device_mmap_io(struct panthor_device *ptdev,
+			   struct vm_area_struct *vma)
 {
 	u64 offset = (u64)vma->vm_pgoff << PAGE_SHIFT;
 
@@ -409,9 +419,8 @@ int panthor_device_mmap_io(struct panthor_device *ptdev, struct vm_area_struct *
 	/* Defer actual mapping to the fault handler. */
 	vma->vm_private_data = ptdev;
 	vma->vm_ops = &panthor_mmio_vm_ops;
-	vm_flags_set(vma,
-		     VM_IO | VM_DONTCOPY | VM_DONTEXPAND |
-		     VM_NORESERVE | VM_DONTDUMP | VM_PFNMAP);
+	vm_flags_set(vma, VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_NORESERVE |
+				  VM_DONTDUMP | VM_PFNMAP);
 	return 0;
 }
 
