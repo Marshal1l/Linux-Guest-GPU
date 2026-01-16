@@ -76,6 +76,14 @@ System.map
 *.code-workspace
 
 # 其他
+.tmp_vmlinux*
+vmlinux
+vmlinux.lds
+vmlinux.o
+vmlinux.bin
+System.map
+Module.symvers
+modules.order
 .DS_Store
 Thumbs.db
 __pycache__/
