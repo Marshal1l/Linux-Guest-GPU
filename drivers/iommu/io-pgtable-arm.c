@@ -8,7 +8,7 @@
  */
 
 #define pr_fmt(fmt) "arm-lpae io-pgtable: " fmt
-
+#include <linux/highmem.h>
 #include <linux/atomic.h>
 #include <linux/bitops.h>
 #include <linux/io-pgtable.h>
@@ -495,14 +495,12 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 
 	return pte;
 }
-long kvm_hypercall_gpa_to_hpa_batch(u64 *addr_array, u64 count)
+long kvm_hypercall_gpa_to_hpa_batch(u64 addr_array, u64 count)
 {
 	struct arm_smccc_res res;
 
-	phys_addr_t array_gpa = virt_to_phys(addr_array);
-
-	arm_smccc_1_1_invoke(ARM_SMCCC_VENDOR_HYP_GPA_TO_HPA_FUNC_ID, array_gpa,
-			     count, &res);
+	arm_smccc_1_1_invoke(ARM_SMCCC_VENDOR_HYP_GPA_TO_HPA_FUNC_ID,
+			     addr_array, count, &res);
 
 	return res.a0; // 返回状态码
 }
@@ -537,39 +535,40 @@ static int arm_panthor_lpae_map_pages(struct io_pgtable_ops *ops,
 	pages = alloc_pages(GFP_KERNEL, order);
 	if (!pages)
 		return -ENOMEM;
-	u64 *pages_buffer = (u64 *)page_address(pages);
-
+	void *pages_virt = page_address(pages);
+	if (!pages_virt) {
+		// 高端内存：临时映射
+		pages_virt = kmap(pages);
+		if (!pages_virt) {
+			ret = -ENOMEM;
+			goto free_pages;
+		}
+	}
 	// u64 *pages_buffer = kmalloc_array(pgcount, sizeof(u64), GFP_KERNEL);
-	if (!pages_buffer)
-		return -ENOMEM;
+	u64 *gpa_array = (u64 *)pages_virt;
 	for (size_t i = 0; i < pgcount; i++) {
-		pages_buffer[i] = paddr + (i * pgsize);
+		gpa_array[i] = paddr + (i * pgsize);
 	}
-	ret = kvm_hypercall_gpa_to_hpa_batch((u64 *)virt_to_phys(pages_buffer),
-					     pgcount);
-	if (ret != 0) {
-		// kfree(pages_buffer);
-		__free_pages(pages, order);
-		return -EFAULT;
-	}
-	for (size_t i = 0; i < pgcount; i++) {
-		phys_addr_t hpa = pages_buffer[i];
-		unsigned long current_iova = iova + (i * pgsize);
 
+	phys_addr_t pages_phys = page_to_phys(pages);
+	ret = kvm_hypercall_gpa_to_hpa_batch(pages_phys, pgcount);
+	if (ret != 0) {
+		ret = -EFAULT;
+		goto unmap_page;
+	}
+	for (size_t i = 0; i < pgcount; i++) {
+		phys_addr_t hpa = gpa_array[i];
+		unsigned long current_iova = iova + (i * pgsize);
 		__arm_lpae_map(data, current_iova, hpa, pgsize, 1, prot, lvl,
 			       ptep, gfp, mapped);
 	}
-	// kfree(pages_buffer);
-	__free_pages(pages, order);
 	wmb();
-	// ret = __arm_lpae_map(data, iova, paddr, pgsize, pgcount, prot, lvl,
-	// 		     ptep, gfp, mapped);
-	/*
-	 * Synchronise all PTE updates for the new mapping before there's
-	 * a chance for anything to kick off a table walk for the new iova.
-	 */
-	// wmb();
-
+unmap_page:
+	if (pages_virt && !page_address(pages)) {
+		kunmap(pages);
+	}
+free_pages:
+	__free_pages(pages, order);
 	return ret;
 }
 
@@ -1217,25 +1216,21 @@ arm_64_panthor_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	/* TTBR */
 	//cfg->arm_lpae_s1_cfg.ttbr = virt_to_phys(data->pgd);
 	gpa_ttbr = virt_to_phys(data->pgd);
-	unsigned int order = get_order(sizeof(u64));
-	struct page *pages;
-	pages = alloc_pages(GFP_KERNEL, order);
-	if (!pages)
-		goto out_free_data;
-	u64 *pages_buffer = (u64 *)page_address(pages);
-	pages_buffer[0] = gpa_ttbr;
-	ret = kvm_hypercall_gpa_to_hpa_batch((u64 *)virt_to_phys(pages_buffer),
-					     1);
+	struct page *page = alloc_page(GFP_KERNEL);
+	u64 *p = page_address(page);
+	*p = gpa_ttbr;
+	flush_dcache_page(page);
+	phys_addr_t pa = page_to_phys(page);
+	ret = kvm_hypercall_gpa_to_hpa_batch(pa, 1);
 	if (ret != 0) {
-		__free_pages(pages, order);
 		goto out_free_data;
 	}
-	cfg->arm_lpae_s1_cfg.ttbr = pages_buffer[0];
-	__free_pages(pages, order);
+
+	cfg->arm_lpae_s1_cfg.ttbr = *p;
 	return &data->iop;
 
 out_free_data:
-	kfree(data);
+	__free_page(page);
 	return NULL;
 }
 static struct io_pgtable *
