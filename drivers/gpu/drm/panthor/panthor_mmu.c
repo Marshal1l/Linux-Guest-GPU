@@ -1707,7 +1707,10 @@ static void panthor_mmu_irq_handler(struct panthor_device *ptdev, u32 status)
 		fault_status = gpu_read(ptdev, AS_FAULTSTATUS(as));
 		addr = gpu_read(ptdev, AS_FAULTADDRESS_LO(as));
 		addr |= (u64)gpu_read(ptdev, AS_FAULTADDRESS_HI(as)) << 32;
-
+		u64 tap_addr;
+		tap_addr = gpu_read(ptdev, AS_TRANSTAB_LO(as));
+		tap_addr |= ((u64)gpu_read(ptdev, AS_TRANSTAB_HI(as)) << 32);
+		pr_err("[MZH] gpu_tap_addr:%llx", tap_addr);
 		/* decode the fault status */
 		exception_type = fault_status & 0xFF;
 		access_type = (fault_status >> 8) & 0x3;
@@ -1721,7 +1724,7 @@ static void panthor_mmu_irq_handler(struct panthor_device *ptdev, u32 status)
 
 		/* terminal fault, print info about the fault */
 		drm_err(&ptdev->base,
-			"Unhandled Page fault in AS%d at VA 0x%016llX\n"
+			"Unhandled Page fault in AS%d at VA 0x%016llX\n",
 			"raw fault status: 0x%X\n"
 			"decoded fault status: %s\n"
 			"exception type 0x%X: %s\n"

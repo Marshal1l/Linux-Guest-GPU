@@ -41,7 +41,8 @@ void panthor_kernel_bo_destroy(struct panthor_kernel_bo *bo)
 	panthor_kernel_bo_vunmap(bo);
 
 	if (drm_WARN_ON(bo->obj->dev,
-			to_panthor_bo(bo->obj)->exclusive_vm_root_gem != panthor_vm_root_gem(vm)))
+			to_panthor_bo(bo->obj)->exclusive_vm_root_gem !=
+				panthor_vm_root_gem(vm)))
 		goto out_free_bo;
 
 	ret = panthor_vm_unmap_range(vm, bo->va_node.start, bo->va_node.size);
@@ -70,10 +71,10 @@ out_free_bo:
  *
  * Return: A valid pointer in case of success, an ERR_PTR() otherwise.
  */
-struct panthor_kernel_bo *
-panthor_kernel_bo_create(struct panthor_device *ptdev, struct panthor_vm *vm,
-			 size_t size, u32 bo_flags, u32 vm_map_flags,
-			 u64 gpu_va)
+struct panthor_kernel_bo *panthor_kernel_bo_create(struct panthor_device *ptdev,
+						   struct panthor_vm *vm,
+						   size_t size, u32 bo_flags,
+						   u32 vm_map_flags, u64 gpu_va)
 {
 	struct drm_gem_shmem_object *obj;
 	struct panthor_kernel_bo *kbo;
@@ -108,7 +109,8 @@ panthor_kernel_bo_create(struct panthor_device *ptdev, struct panthor_vm *vm,
 	if (ret)
 		goto err_put_obj;
 
-	ret = panthor_vm_map_bo_range(vm, bo, 0, size, kbo->va_node.start, vm_map_flags);
+	ret = panthor_vm_map_bo_range(vm, bo, 0, size, kbo->va_node.start,
+				      vm_map_flags);
 	if (ret)
 		goto err_free_va;
 
@@ -129,7 +131,8 @@ err_free_bo:
 	return ERR_PTR(ret);
 }
 
-static int panthor_gem_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
+static int panthor_gem_mmap(struct drm_gem_object *obj,
+			    struct vm_area_struct *vma)
 {
 	struct panthor_gem_object *bo = to_panthor_bo(obj);
 
@@ -140,8 +143,8 @@ static int panthor_gem_mmap(struct drm_gem_object *obj, struct vm_area_struct *v
 	return drm_gem_shmem_object_mmap(obj, vma);
 }
 
-static struct dma_buf *
-panthor_gem_prime_export(struct drm_gem_object *obj, int flags)
+static struct dma_buf *panthor_gem_prime_export(struct drm_gem_object *obj,
+						int flags)
 {
 	/* We can't export GEMs that have an exclusive VM. */
 	if (to_panthor_bo(obj)->exclusive_vm_root_gem)
@@ -171,9 +174,11 @@ static const struct drm_gem_object_funcs panthor_gem_funcs = {
  * This lets the GEM helpers allocate object structs for us, and keep
  * our BO stats correct.
  */
-struct drm_gem_object *panthor_gem_create_object(struct drm_device *ddev, size_t size)
+struct drm_gem_object *panthor_gem_create_object(struct drm_device *ddev,
+						 size_t size)
 {
-	struct panthor_device *ptdev = container_of(ddev, struct panthor_device, base);
+	struct panthor_device *ptdev =
+		container_of(ddev, struct panthor_device, base);
 	struct panthor_gem_object *obj;
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
@@ -199,11 +204,10 @@ struct drm_gem_object *panthor_gem_create_object(struct drm_device *ddev, size_t
  *
  * Return: Zero on success
  */
-int
-panthor_gem_create_with_handle(struct drm_file *file,
-			       struct drm_device *ddev,
-			       struct panthor_vm *exclusive_vm,
-			       u64 *size, u32 flags, u32 *handle)
+int panthor_gem_create_with_handle(struct drm_file *file,
+				   struct drm_device *ddev,
+				   struct panthor_vm *exclusive_vm, u64 *size,
+				   u32 flags, u32 *handle)
 {
 	int ret;
 	struct drm_gem_shmem_object *shmem;

@@ -531,15 +531,25 @@ static int arm_panthor_lpae_map_pages(struct io_pgtable_ops *ops,
 		return -EINVAL;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
-	u64 *pages_buffer = kmalloc_array(pgcount, sizeof(u64), GFP_KERNEL);
+	size_t size = pgcount * sizeof(u64);
+	unsigned int order = get_order(size);
+	struct page *pages;
+	pages = alloc_pages(GFP_KERNEL, order);
+	if (!pages)
+		return -ENOMEM;
+	u64 *pages_buffer = (u64 *)page_address(pages);
+
+	// u64 *pages_buffer = kmalloc_array(pgcount, sizeof(u64), GFP_KERNEL);
 	if (!pages_buffer)
 		return -ENOMEM;
 	for (size_t i = 0; i < pgcount; i++) {
 		pages_buffer[i] = paddr + (i * pgsize);
 	}
-	ret = kvm_hypercall_gpa_to_hpa_batch(pages_buffer, pgcount);
+	ret = kvm_hypercall_gpa_to_hpa_batch((u64 *)virt_to_phys(pages_buffer),
+					     pgcount);
 	if (ret != 0) {
-		kfree(pages_buffer);
+		// kfree(pages_buffer);
+		__free_pages(pages, order);
 		return -EFAULT;
 	}
 	for (size_t i = 0; i < pgcount; i++) {
@@ -549,7 +559,8 @@ static int arm_panthor_lpae_map_pages(struct io_pgtable_ops *ops,
 		__arm_lpae_map(data, current_iova, hpa, pgsize, 1, prot, lvl,
 			       ptep, gfp, mapped);
 	}
-	kfree(pages_buffer);
+	// kfree(pages_buffer);
+	__free_pages(pages, order);
 	wmb();
 	// ret = __arm_lpae_map(data, iova, paddr, pgsize, pgcount, prot, lvl,
 	// 		     ptep, gfp, mapped);
@@ -1103,6 +1114,8 @@ out_free_data:
 static struct io_pgtable *
 arm_64_panthor_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 {
+	u64 gpa_ttbr;
+	int ret = 0;
 	u64 reg;
 	struct arm_lpae_io_pgtable *data;
 	typeof(&cfg->arm_lpae_s1_cfg.tcr) tcr = &cfg->arm_lpae_s1_cfg.tcr;
@@ -1202,7 +1215,23 @@ arm_64_panthor_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	wmb();
 
 	/* TTBR */
-	cfg->arm_lpae_s1_cfg.ttbr = virt_to_phys(data->pgd);
+	//cfg->arm_lpae_s1_cfg.ttbr = virt_to_phys(data->pgd);
+	gpa_ttbr = virt_to_phys(data->pgd);
+	unsigned int order = get_order(sizeof(u64));
+	struct page *pages;
+	pages = alloc_pages(GFP_KERNEL, order);
+	if (!pages)
+		goto out_free_data;
+	u64 *pages_buffer = (u64 *)page_address(pages);
+	pages_buffer[0] = gpa_ttbr;
+	ret = kvm_hypercall_gpa_to_hpa_batch((u64 *)virt_to_phys(pages_buffer),
+					     1);
+	if (ret != 0) {
+		__free_pages(pages, order);
+		goto out_free_data;
+	}
+	cfg->arm_lpae_s1_cfg.ttbr = pages_buffer[0];
+	__free_pages(pages, order);
 	return &data->iop;
 
 out_free_data:

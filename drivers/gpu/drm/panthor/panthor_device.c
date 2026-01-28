@@ -168,21 +168,21 @@ int panthor_device_init(struct panthor_device *ptdev)
 	if (ret)
 		return ret;
 
-	ret = drmm_mutex_init(&ptdev->base, &ptdev->pm.mmio_lock);
-	if (ret)
-		return ret;
+	// ret = drmm_mutex_init(&ptdev->base, &ptdev->pm.mmio_lock);
+	// if (ret)
+	// 	return ret;
 
-	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_SUSPENDED);
-	p = alloc_page(GFP_KERNEL | __GFP_ZERO);
-	if (!p)
-		return -ENOMEM;
+	// atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_SUSPENDED);
+	// p = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	// if (!p)
+	// 	return -ENOMEM;
 
-	ptdev->pm.dummy_latest_flush = p;
-	dummy_page_virt = page_address(p);
-	ret = drmm_add_action_or_reset(&ptdev->base, panthor_device_free_page,
-				       ptdev->pm.dummy_latest_flush);
-	if (ret)
-		return ret;
+	// ptdev->pm.dummy_latest_flush = p;
+	// dummy_page_virt = page_address(p);
+	// ret = drmm_add_action_or_reset(&ptdev->base, panthor_device_free_page,
+	// 			       ptdev->pm.dummy_latest_flush);
+	// if (ret)
+	// 	return ret;
 
 	/*
 	 * Set the dummy page holding the latest flush to 1. This will cause the
@@ -190,7 +190,7 @@ int panthor_device_init(struct panthor_device *ptdev)
 	 * happens while the dummy page is mapped. Zero cannot be used because
 	 * that means 'always flush'.
 	 */
-	*dummy_page_virt = 1;
+	// *dummy_page_virt = 1;
 
 	INIT_WORK(&ptdev->reset.work, panthor_device_reset_work);
 	ptdev->reset.wq = alloc_ordered_workqueue("panthor-reset-wq", 0);
@@ -202,13 +202,13 @@ int panthor_device_init(struct panthor_device *ptdev)
 	if (ret)
 		return ret;
 
-	ret = panthor_clk_init(ptdev);
-	if (ret)
-		return ret;
+	// ret = panthor_clk_init(ptdev);
+	// if (ret)
+	// 	return ret;
 
-	ret = panthor_devfreq_init(ptdev);
-	if (ret)
-		return ret;
+	// ret = panthor_devfreq_init(ptdev);
+	// if (ret)
+	// 	return ret;
 
 	ptdev->iomem = devm_platform_get_and_ioremap_resource(
 		to_platform_device(ptdev->base.dev), 0, &res);
@@ -217,37 +217,37 @@ int panthor_device_init(struct panthor_device *ptdev)
 
 	ptdev->phys_addr = res->start;
 
-	ret = devm_pm_runtime_enable(ptdev->base.dev);
-	if (ret)
-		return ret;
+	// ret = devm_pm_runtime_enable(ptdev->base.dev);
+	// if (ret)
+	// 	return ret;
 
-	ret = pm_runtime_resume_and_get(ptdev->base.dev);
-	if (ret)
-		return ret;
+	// ret = pm_runtime_resume_and_get(ptdev->base.dev);
+	// if (ret)
+	// 	return ret;
 
 	/* If PM is disabled, we need to call panthor_device_resume() manually. */
-	if (!IS_ENABLED(CONFIG_PM)) {
-		ret = panthor_device_resume(ptdev->base.dev);
-		if (ret)
-			return ret;
-	}
+	// if (!IS_ENABLED(CONFIG_PM)) {
+	// 	ret = panthor_device_resume(ptdev->base.dev);
+	// 	if (ret)
+	// 		return ret;
+	// }
 
 	ret = panthor_gpu_init(ptdev);
 	if (ret)
 		goto err_rpm_put;
-
+	pr_info("[MZH]panthor_gpu_init done.");
 	ret = panthor_mmu_init(ptdev);
 	if (ret)
 		goto err_unplug_gpu;
-
+	pr_info("[MZH]panthor_mmu_init done.");
 	ret = panthor_fw_init(ptdev);
 	if (ret)
 		goto err_unplug_mmu;
-
+	pr_info("[MZH]panthor_fw_init done.");
 	ret = panthor_sched_init(ptdev);
 	if (ret)
 		goto err_unplug_fw;
-
+	pr_info("[MZH]panthor_sched_init done.");
 	/* ~3 frames */
 	pm_runtime_set_autosuspend_delay(ptdev->base.dev, 50);
 	pm_runtime_use_autosuspend(ptdev->base.dev);
